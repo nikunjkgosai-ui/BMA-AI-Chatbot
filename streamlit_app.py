@@ -267,6 +267,9 @@ if is_admin:
                     ]
                     st.session_state.active_conversation_by_user[user_id] = "welcome"
                     st.session_state.active_user_id = user_id
+                    st.success(
+                        f"User created. ID: `{user_id}` | Temp password: `{new_password.strip()}`"
+                    )
 
         user_options = {
             f"{user['name']} ({user_id})": user_id
