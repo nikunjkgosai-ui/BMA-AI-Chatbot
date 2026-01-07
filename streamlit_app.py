@@ -309,12 +309,16 @@ if st.sidebar.button("+ New chat"):
         },
     )
     st.session_state.active_conversation_by_user[active_user_id] = new_id
+    st.session_state.view_mode = "chat"
 
 conversation_labels = {
     f"{conv['title']} · {conv['id']}": conv["id"] for conv in conversations
 }
 active_conversation_id = st.session_state.active_conversation_by_user.get(active_user_id)
 if conversation_labels:
+    def switch_to_chat():
+        st.session_state.view_mode = "chat"
+
     selected_conversation = st.sidebar.radio(
         "History",
         options=list(conversation_labels.keys()),
@@ -322,6 +326,7 @@ if conversation_labels:
         if active_conversation_id in conversation_labels.values()
         else 0,
         label_visibility="collapsed",
+        on_change=switch_to_chat,
     )
     st.session_state.active_conversation_by_user[active_user_id] = conversation_labels[
         selected_conversation
