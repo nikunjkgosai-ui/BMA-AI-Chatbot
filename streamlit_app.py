@@ -54,7 +54,7 @@ st.markdown(
     """,
     unsafe_allow_html=True,
 )
-st.markdown('<div class="app-title">Company ChatGPT</div>', unsafe_allow_html=True)
+st.markdown('<div class="app-title">Branding Marketing Agency ChatGPT</div>', unsafe_allow_html=True)
 
 def hash_password(password: str) -> str:
     return hashlib.sha256(password.encode("utf-8")).hexdigest()
@@ -111,6 +111,9 @@ if "logged_in_user_id" not in st.session_state:
 
 if "view_mode" not in st.session_state:
     st.session_state.view_mode = "chat"
+
+if "admin_view_user_id" not in st.session_state:
+    st.session_state.admin_view_user_id = None
 
 if "admin_user_id" not in st.session_state:
     admin_id = "admin"
@@ -203,6 +206,7 @@ if st.session_state.logged_in_user_id is None:
                 st.session_state.active_user_id = login_user_id
                 ensure_user_conversations(login_user_id)
                 st.success("Signed in.")
+                st.rerun()
             else:
                 st.error("Invalid credentials.")
     st.info("Admin default: user `admin` / password `admin123` (change after first login).")
@@ -223,7 +227,7 @@ st.sidebar.caption(f"Signed in as {logged_in_user['name']} ({logged_in_user['id'
 if st.sidebar.button("Sign out"):
     st.session_state.logged_in_user_id = None
     st.session_state.active_user_id = None
-    st.experimental_rerun()
+    st.rerun()
 
 if not is_admin:
     st.session_state.active_user_id = st.session_state.logged_in_user_id
@@ -280,15 +284,15 @@ if is_admin:
             selected_label = st.selectbox(
                 "Viewing user",
                 options=list(user_options.keys()),
-                index=list(user_options.values()).index(st.session_state.active_user_id)
-                if st.session_state.active_user_id in user_options.values()
+                index=list(user_options.values()).index(st.session_state.admin_view_user_id)
+                if st.session_state.admin_view_user_id in user_options.values()
                 else 0,
             )
-            st.session_state.active_user_id = user_options[selected_label]
+            st.session_state.admin_view_user_id = user_options[selected_label]
         else:
             st.info("Create a user to enable chat.")
 
-active_user_id = st.session_state.active_user_id or st.session_state.logged_in_user_id
+active_user_id = st.session_state.logged_in_user_id
 st.session_state.active_user_id = active_user_id
 ensure_user_conversations(active_user_id)
 conversations = st.session_state.user_conversations[active_user_id]
@@ -329,9 +333,19 @@ if st.session_state.view_mode == "dashboard" and is_admin:
     total_messages = sum(
         user_message_count(user_id) for user_id in st.session_state.users.keys()
     )
+    view_user_id = st.session_state.admin_view_user_id
+    if view_user_id is None:
+        non_admins = [
+            user_id
+            for user_id, user in st.session_state.users.items()
+            if user.get("role") != "Admin"
+        ]
+        view_user_id = non_admins[0] if non_admins else None
+        st.session_state.admin_view_user_id = view_user_id
+
     active_user_name = (
-        st.session_state.users[st.session_state.active_user_id]["name"]
-        if st.session_state.active_user_id in st.session_state.users
+        st.session_state.users[view_user_id]["name"]
+        if view_user_id in st.session_state.users
         else "—"
     )
 
@@ -359,10 +373,10 @@ if st.session_state.view_mode == "dashboard" and is_admin:
         ]
         st.dataframe(filtered_users, use_container_width=True, hide_index=True)
 
-    if is_admin and st.session_state.active_user_id in st.session_state.user_conversations:
+    if is_admin and view_user_id in st.session_state.user_conversations:
         st.subheader("Recent prompts (selected user)")
         recent_prompts = []
-        for conversation in st.session_state.user_conversations[st.session_state.active_user_id]:
+        for conversation in st.session_state.user_conversations[view_user_id]:
             recent_prompts.extend(
                 msg["content"] for msg in conversation["messages"] if msg["role"] == "user"
             )
