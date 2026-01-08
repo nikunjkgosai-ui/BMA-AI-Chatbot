@@ -172,6 +172,24 @@ else:
 
 CHAT_MODELS = ["gpt-4o", "gpt-4o-mini"]
 
+IMAGE_KEYWORDS = (
+    "image",
+    "picture",
+    "photo",
+    "draw",
+    "illustration",
+    "logo",
+    "generate an image",
+    "create an image",
+    "make an image",
+)
+
+def is_image_prompt(text: str) -> bool:
+    lowered = text.strip().lower()
+    if lowered.startswith("/image"):
+        return True
+    return any(keyword in lowered for keyword in IMAGE_KEYWORDS)
+
 if "users" not in st.session_state:
     st.session_state.users = {}
 
@@ -721,7 +739,7 @@ else:
             with st.chat_message(message["role"]):
                 st.markdown(message["content"])
 
-        if prompt := st.chat_input("Message ChatGPT (use /image for images)"):
+        if prompt := st.chat_input("Message ChatGPT"):
             add_message(conversation, "user", prompt)
             with st.chat_message("user"):
                 st.markdown(prompt)
@@ -731,26 +749,23 @@ else:
                     prompt[:42] + "..." if len(prompt) > 45 else prompt
                 )
 
-            if prompt.strip().lower().startswith("/image"):
-                image_prompt = prompt.replace("/image", "", 1).strip()
-                if not image_prompt:
-                    st.warning("Add a prompt after /image to generate an image.")
-                else:
-                    try:
-                        image = client.images.generate(
-                            model="gpt-image-1",
-                            prompt=image_prompt,
-                            size="1024x1024",
-                        )
-                        image_b64 = image.data[0].b64_json
-                        image_bytes = base64.b64decode(image_b64)
-                        with st.chat_message("assistant"):
-                            st.image(image_bytes, caption=image_prompt, use_container_width=True)
-                        add_message(conversation, "assistant", "[image]")
-                    except Exception as exc:
-                        with st.chat_message("assistant"):
-                            st.error(f"Image generation failed: {exc}")
-                        add_message(conversation, "assistant", "[image generation failed]")
+            if is_image_prompt(prompt):
+                image_prompt = prompt.replace("/image", "", 1).strip() or prompt.strip()
+                try:
+                    image = client.images.generate(
+                        model="gpt-image-1",
+                        prompt=image_prompt,
+                        size="1024x1024",
+                    )
+                    image_b64 = image.data[0].b64_json
+                    image_bytes = base64.b64decode(image_b64)
+                    with st.chat_message("assistant"):
+                        st.image(image_bytes, caption=image_prompt, use_container_width=True)
+                    add_message(conversation, "assistant", "[image]")
+                except Exception as exc:
+                    with st.chat_message("assistant"):
+                        st.error(f"Image generation failed: {exc}")
+                    add_message(conversation, "assistant", "[image generation failed]")
             else:
                 stream = client.chat.completions.create(
                     model=selected_model,
