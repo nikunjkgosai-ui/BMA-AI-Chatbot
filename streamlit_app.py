@@ -1,4 +1,5 @@
 from datetime import datetime
+import base64
 import hashlib
 import uuid
 
@@ -168,6 +169,8 @@ if openai_api_key:
 else:
     st.error("OpenAI API key is required. Add it to `.streamlit/secrets.toml`.")
     st.stop()
+
+CHAT_MODELS = ["gpt-4o", "gpt-4o-mini"]
 
 if "users" not in st.session_state:
     st.session_state.users = {}
@@ -708,6 +711,7 @@ else:
     if not conversation:
         st.info("Create a new chat to start chatting.")
     else:
+        selected_model = st.selectbox("Model", CHAT_MODELS, index=0)
         st.markdown(
             f"**Chatting as** {st.session_state.users[active_user_id]['name']}"
             if is_admin
@@ -717,7 +721,7 @@ else:
             with st.chat_message(message["role"]):
                 st.markdown(message["content"])
 
-        if prompt := st.chat_input("Message ChatGPT"):
+        if prompt := st.chat_input("Message ChatGPT (use /image for images)"):
             add_message(conversation, "user", prompt)
             with st.chat_message("user"):
                 st.markdown(prompt)
@@ -727,18 +731,39 @@ else:
                     prompt[:42] + "..." if len(prompt) > 45 else prompt
                 )
 
-            stream = client.chat.completions.create(
-                model="gpt-3.5-turbo",
-                messages=[
-                    {"role": m["role"], "content": m["content"]}
-                    for m in conversation["messages"]
-                ],
-                stream=True,
-            )
+            if prompt.strip().lower().startswith("/image"):
+                image_prompt = prompt.replace("/image", "", 1).strip()
+                if not image_prompt:
+                    st.warning("Add a prompt after /image to generate an image.")
+                else:
+                    try:
+                        image = client.images.generate(
+                            model="gpt-image-1",
+                            prompt=image_prompt,
+                            size="1024x1024",
+                        )
+                        image_b64 = image.data[0].b64_json
+                        image_bytes = base64.b64decode(image_b64)
+                        with st.chat_message("assistant"):
+                            st.image(image_bytes, caption=image_prompt, use_container_width=True)
+                        add_message(conversation, "assistant", "[image]")
+                    except Exception as exc:
+                        with st.chat_message("assistant"):
+                            st.error(f"Image generation failed: {exc}")
+                        add_message(conversation, "assistant", "[image generation failed]")
+            else:
+                stream = client.chat.completions.create(
+                    model=selected_model,
+                    messages=[
+                        {"role": m["role"], "content": m["content"]}
+                        for m in conversation["messages"]
+                    ],
+                    stream=True,
+                )
 
-            with st.chat_message("assistant"):
-                response = st.write_stream(stream)
-            add_message(conversation, "assistant", response)
+                with st.chat_message("assistant"):
+                    response = st.write_stream(stream)
+                add_message(conversation, "assistant", response)
 
             st.session_state.users[active_user_id]["message_count"] = user_message_count(
                 active_user_id
