@@ -153,37 +153,21 @@ def hash_password(password: str) -> str:
 def now_timestamp() -> str:
     return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-# Demo response generator used when no API key is provided.
-def generate_demo_response(prompt: str, history: list) -> str:
-    # A simple canned/demo response generator. You can extend this to be richer.
-    last_user = prompt
-    context = " ".join(m["content"] for m in history[-6:]) if history else ""
-    return (
-        "[DEMO MODE] "
-        f"I received your message: \"{last_user}\". "
-        "This is a canned demo response — no external API was called."
-        + (f" Context: {context}" if context else "")
-    )
-
 try:
     openai_api_key = st.secrets.get("OPENAI_API_KEY", "")
 except st.errors.StreamlitSecretNotFoundError:
     openai_api_key = ""
 
-# Determine whether to run in demo mode or with a real OpenAI key.
-demo_mode = False
 client = None
-demo_notice = ""
 if openai_api_key:
     try:
         client = OpenAI(api_key=openai_api_key)
     except Exception:
-        st.warning("Could not initialize OpenAI client; falling back to demo mode.")
-        demo_mode = True
-        demo_notice = "Demo mode is active (OpenAI client unavailable)."
+        st.error("Could not initialize OpenAI client. Check your API key.")
+        st.stop()
 else:
-    demo_mode = True
-    demo_notice = "Demo mode is active (no OpenAI API key provided)."
+    st.error("OpenAI API key is required. Add it to `.streamlit/secrets.toml`.")
+    st.stop()
 
 if "users" not in st.session_state:
     st.session_state.users = {}
@@ -341,10 +325,6 @@ is_admin = logged_in_user and logged_in_user.get("role") == "Admin"
 ensure_user_conversations(logged_in_user["id"])
 if not is_admin:
     st.session_state.view_mode = "chat"
-
-if is_admin and demo_notice:
-    with st.sidebar:
-        st.info(demo_notice)
 
 if not is_admin:
     st.session_state.active_user_id = st.session_state.logged_in_user_id
@@ -747,24 +727,18 @@ else:
                     prompt[:42] + "..." if len(prompt) > 45 else prompt
                 )
 
-            if demo_mode or client is None:
-                response = generate_demo_response(prompt, conversation["messages"])
-                with st.chat_message("assistant"):
-                    st.markdown(response)
-                add_message(conversation, "assistant", response)
-            else:
-                stream = client.chat.completions.create(
-                    model="gpt-3.5-turbo",
-                    messages=[
-                        {"role": m["role"], "content": m["content"]}
-                        for m in conversation["messages"]
-                    ],
-                    stream=True,
-                )
+            stream = client.chat.completions.create(
+                model="gpt-3.5-turbo",
+                messages=[
+                    {"role": m["role"], "content": m["content"]}
+                    for m in conversation["messages"]
+                ],
+                stream=True,
+            )
 
-                with st.chat_message("assistant"):
-                    response = st.write_stream(stream)
-                add_message(conversation, "assistant", response)
+            with st.chat_message("assistant"):
+                response = st.write_stream(stream)
+            add_message(conversation, "assistant", response)
 
             st.session_state.users[active_user_id]["message_count"] = user_message_count(
                 active_user_id
