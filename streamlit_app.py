@@ -10,153 +10,138 @@ st.set_page_config(page_title="Chatbot", page_icon="💬", layout="wide")
 st.markdown(
     """
     <style>
-    :root {
-        --app-bg: #0f1117;
-        --panel-bg: #151923;
-        --panel-border: #23283b;
-        --text-primary: #f7f7f9;
-        --text-muted: #a2a6b4;
-        --accent: #2782d6;
-    }
-    html, body, [class*="stApp"] {
-        background: var(--app-bg);
-        color: var(--text-primary);
-        font-family: "IBM Plex Sans", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
-    }
-    #MainMenu, footer { visibility: hidden; }
-    .block-container { padding-top: 2.5rem; max-width: 1100px; }
-    .app-title {
-        font-size: 1.3rem;
-        letter-spacing: 0.08rem;
-        text-transform: uppercase;
-        color: var(--text-muted);
-        margin-bottom: 1.5rem;
-    }
-    section[data-testid="stSidebar"] {
-        background: linear-gradient(180deg, #111522 0%, #0b0d15 100%);
-        border-right: 1px solid var(--panel-border);
-    }
-    section[data-testid="stSidebar"] .stButton button {
-        width: 100%;
-        background: var(--accent);
-        color: white;
-        border: 0;
-    }
-    .stButton button:hover,
-    .stButton button:active {
-        background: var(--accent);
-        color: white;
-        border-color: var(--accent);
-    }
-    section[data-testid="stSidebar"] .stButton button:hover,
-    section[data-testid="stSidebar"] .stButton button:active {
-        background: var(--accent);
-        color: white;
-    }
-    section[data-testid="stSidebar"] .stRadio div[role="radiogroup"] {
-        display: flex;
-        flex-direction: column;
-        gap: 0.4rem;
-    }
-    section[data-testid="stSidebar"] label[data-baseweb="radio"] {
-        background: var(--panel-bg);
-        border: 1px solid var(--panel-border);
-        border-radius: 12px;
-        padding: 0.55rem 0.85rem;
-        width: 100%;
-        box-sizing: border-box;
-        display: flex;
-        align-items: center;
-    }
-    section[data-testid="stSidebar"] label[data-baseweb="radio"] > div:first-child {
-        display: none !important;
-    }
-    section[data-testid="stSidebar"] label[data-baseweb="radio"] input[type="radio"] {
-        display: none !important;
-    }
-    section[data-testid="stSidebar"] label[data-baseweb="radio"] span {
-        margin-left: 0 !important;
-    }
-    section[data-testid="stSidebar"] label[data-baseweb="radio"]:hover {
-        background: var(--accent);
-        color: white;
-        border-color: var(--accent);
-    }
-    section[data-testid="stSidebar"] label[data-baseweb="radio"]:has(div[aria-checked="true"]) {
-        background: var(--accent);
-        color: white;
-        border-color: var(--accent);
-    }
-    section[data-testid="stSidebar"] label[data-baseweb="radio"][aria-checked="true"] {
-        background: var(--accent);
-        color: white;
-        border-color: var(--accent);
-    }
-    section[data-testid="stSidebar"] label[data-baseweb="radio"] > div {
-        width: 100%;
-    }
-    section[data-testid="stSidebar"] label[data-baseweb="radio"] input:checked ~ div,
-    section[data-testid="stSidebar"] label[data-baseweb="radio"]:has(input:checked) {
-        background: var(--accent);
-        color: white;
-        border-color: var(--accent);
-    }
-    section[data-testid="stSidebar"] label[data-baseweb="radio"] span {
-        color: inherit;
-    }
-    .activity-card {
-        background: var(--panel-bg);
-        border: 1px solid var(--panel-border);
-        border-radius: 12px;
-        padding: 0.75rem 1rem;
-        margin-bottom: 0.6rem;
-    }
-    .activity-meta {
-        color: var(--text-muted);
-        font-size: 0.85rem;
-        margin-bottom: 0.35rem;
-    }
-    .top-bar {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        background: var(--panel-bg);
-        border: 1px solid var(--panel-border);
-        border-radius: 14px;
-        padding: 1rem 1.25rem;
-        margin-bottom: 1.5rem;
-    }
-    .top-bar h2 {
-        margin: 0;
-        font-size: 1.4rem;
-    }
-    .top-bar small {
-        color: var(--text-muted);
-    }
-    .card {
-        background: var(--panel-bg);
-        border: 1px solid var(--panel-border);
-        border-radius: 16px;
-        padding: 1rem 1.25rem;
-    }
-    .card h4 {
-        margin: 0 0 0.6rem 0;
-        font-size: 0.95rem;
-        color: var(--text-muted);
-    }
-    .card-value {
-        font-size: 1.6rem;
-        font-weight: 600;
-    }
-    .chat-shell {
-        background: var(--panel-bg);
-        border: 1px solid var(--panel-border);
-        border-radius: 16px;
-        padding: 1.5rem;
-        min-height: 60vh;
-    }
-    .subtle { color: var(--text-muted); }
-    </style>
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&display=swap');
+
+:root {
+  --app-bg: #0f1117;
+  --panel-bg: #151923;
+  --panel-border: #23283b;
+  --text-primary: #f7f7f9;
+  --text-muted: #a2a6b4;
+  --accent: #2782d6;
+}
+
+/* Global app styling */
+html, body, .stApp {
+  background: var(--app-bg);
+  color: var(--text-primary);
+  font-family: "IBM Plex Sans", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+}
+
+/* Hide Streamlit chrome */
+#MainMenu { visibility: hidden; }
+footer { display: none; }
+header { display: none; }
+
+/* Main container */
+div.block-container {
+  padding-top: 2.5rem;
+  max-width: 1100px;
+}
+
+/* App title */
+.app-title {
+  font-size: 1.3rem;
+  letter-spacing: 0.08rem;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 1.5rem;
+}
+
+/* Sidebar */
+section[data-testid="stSidebar"] {
+  background: linear-gradient(180deg, #111522 0%, #0b0d15 100%);
+  border-right: 1px solid var(--panel-border);
+}
+
+/* Sidebar markdown width fix */
+section[data-testid="stSidebar"] .stMarkdown {
+  width: 100%;
+}
+
+/* Reduce spacing between sidebar buttons */
+section[data-testid="stSidebar"] .stButton {
+  margin-bottom: 0rem;
+  gap: 0.5rem;
+}
+
+/* Sidebar buttons */
+section[data-testid="stSidebar"] .stButton button {
+  width: 100%;
+  background: var(--panel-bg);
+  color: var(--text-primary);
+  border: 1px solid var(--panel-bg);
+  border-radius: 12px;
+  padding: 0.35rem 0.6rem;
+
+  /* LEFT ALIGN FIX */
+  display: flex;
+  justify-content: flex-start;
+  align-items: center;
+  text-align: left;
+}
+
+/* Inner button content alignment */
+section[data-testid="stSidebar"] .stButton button > div {
+  display: flex;
+  justify-content: flex-start;
+  align-items: center;
+  width: 100%;
+}
+
+/* Remove focus glow */
+section[data-testid="stSidebar"] .stButton button:focus {
+  box-shadow: none;
+  outline: none;
+}
+
+/* Hover & active state */
+section[data-testid="stSidebar"] .stButton button:hover,
+section[data-testid="stSidebar"] .stButton button:active {
+  background: var(--accent);
+  color: #ffffff;
+  border-color: var(--accent);
+}
+
+/* Activity cards */
+.activity-card {
+  background: var(--panel-bg);
+  border: 1px solid var(--panel-border);
+  border-radius: 12px;
+  padding: 0.75rem 1rem;
+  margin-bottom: 0.6rem;
+}
+
+.activity-meta {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  margin-bottom: 0.35rem;
+}
+
+/* Dashboard cards */
+.card {
+  background: var(--panel-bg);
+  border: 1px solid var(--panel-border);
+  border-radius: 16px;
+  padding: 1rem 1.25rem;
+}
+
+.card h4 {
+  margin: 0 0 0.6rem 0;
+  font-size: 0.95rem;
+  color: var(--text-muted);
+}
+
+.card-value {
+  font-size: 1.6rem;
+  font-weight: 600;
+}
+
+.subtle {
+  color: var(--text-muted);
+}
+</style>
+
     """,
     unsafe_allow_html=True,
 )
@@ -223,9 +208,6 @@ if "admin_view_user_id" not in st.session_state:
 
 if "admin_section" not in st.session_state:
     st.session_state.admin_section = "Dashboard"
-
-if "admin_nav" not in st.session_state:
-    st.session_state.admin_nav = "🏠 Dashboard"
 
 if "admin_user_id" not in st.session_state:
     admin_id = "admin@company.local"
@@ -370,9 +352,6 @@ if not is_admin:
 if is_admin and st.session_state.view_mode == "dashboard":
     with st.sidebar:
         st.markdown("### Admin")
-        def on_admin_nav_change():
-            st.session_state.admin_section = nav_map[st.session_state.admin_nav]
-            st.rerun()
 
         nav_items = [
             ("Dashboard", "🏠 Dashboard"),
@@ -384,41 +363,25 @@ if is_admin and st.session_state.view_mode == "dashboard":
             ("Billing", "💳 Billing"),
             ("Settings", "⚙️ Settings"),
         ]
-        nav_map = {label: key for key, label in nav_items}
-        nav_labels = [label for _, label in nav_items]
-        active_label = dict(nav_items).get(st.session_state.admin_section, nav_labels[0])
-        if st.session_state.admin_nav != active_label:
-            st.session_state.admin_nav = active_label
 
-        st.radio(
-            "Navigation",
-            nav_labels,
-            index=nav_labels.index(active_label),
-            label_visibility="collapsed",
-            key="admin_nav",
-            on_change=on_admin_nav_change,
-        )
+        for key, label in nav_items:
+            is_active = st.session_state.admin_section == key
+            if st.button(
+                label,
+                use_container_width=True,
+                type="primary" if is_active else "secondary",
+                key=f"admin_nav_{key}",
+            ):
+                st.session_state.admin_section = key
+                st.rerun()
+
         st.markdown("---")
         st.caption(f"Signed in as {logged_in_user['name']} ({logged_in_user['id']})")
 else:
     st.sidebar.markdown("### Chats")
-    st.sidebar.caption(f"Signed in as {logged_in_user['name']} ({logged_in_user['id']})")
-    if st.sidebar.button("Sign out", use_container_width=True):
-        st.session_state.logged_in_user_id = None
-        st.session_state.active_user_id = None
-        st.rerun()
-    if is_admin and st.sidebar.button("Open dashboard", use_container_width=True):
-        st.session_state.view_mode = "dashboard"
-        st.rerun()
-
-if not (is_admin and st.session_state.view_mode == "dashboard"):
-    active_user_id = st.session_state.logged_in_user_id
-    st.session_state.active_user_id = active_user_id
-    ensure_user_conversations(active_user_id)
-    conversations = st.session_state.user_conversations[active_user_id]
-
-    if st.sidebar.button("New chat", use_container_width=True):
+    if st.sidebar.button("➕ New chat", use_container_width=True):
         new_id = str(uuid.uuid4())[:8]
+        conversations = st.session_state.user_conversations[st.session_state.logged_in_user_id]
         conversations.insert(
             0,
             {
@@ -428,29 +391,107 @@ if not (is_admin and st.session_state.view_mode == "dashboard"):
                 "created_at": now_timestamp(),
             },
         )
-        st.session_state.active_conversation_by_user[active_user_id] = new_id
+        st.session_state.active_conversation_by_user[st.session_state.logged_in_user_id] = new_id
         st.session_state.view_mode = "chat"
 
-    conversation_labels = {
-        f"{conv['title']} · {conv['id']}": conv["id"] for conv in conversations
-    }
-    active_conversation_id = st.session_state.active_conversation_by_user.get(active_user_id)
-    if conversation_labels:
-        def switch_to_chat():
-            st.session_state.view_mode = "chat"
+    st.sidebar.markdown("---")
 
-        selected_conversation = st.sidebar.radio(
-            "History",
-            options=list(conversation_labels.keys()),
-            index=list(conversation_labels.values()).index(active_conversation_id)
-            if active_conversation_id in conversation_labels.values()
-            else 0,
-            label_visibility="collapsed",
-            on_change=switch_to_chat,
+
+if not (is_admin and st.session_state.view_mode == "dashboard"):
+    st.markdown(
+        """
+        <style>
+        section[data-testid="stSidebar"] .chat-list .stButton button {
+            background: transparent;
+            border: 1px solid transparent;
+            padding: 0.35rem 0.65rem;
+            border-radius: 10px;
+            width: 100%;
+        }
+        section[data-testid="stSidebar"] .chat-list .stButton button:hover {
+            background: rgba(255, 255, 255, 0.08) !important;
+            color: white !important;
+            border-color: transparent !important;
+        }
+        section[data-testid="stSidebar"] .chat-list .stButton button[kind="primary"],
+        section[data-testid="stSidebar"] .chat-list .stButton button[aria-pressed="true"],
+        section[data-testid="stSidebar"] .chat-list [data-testid="baseButton-primary"] {
+            background: rgba(255, 255, 255, 0.12) !important;
+            color: white !important;
+            border-color: transparent !important;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+    active_user_id = st.session_state.logged_in_user_id
+    st.session_state.active_user_id = active_user_id
+    ensure_user_conversations(active_user_id)
+    conversations = st.session_state.user_conversations[active_user_id]
+
+    active_conversation_id = st.session_state.active_conversation_by_user.get(active_user_id)
+    st.sidebar.markdown('<div class="chat-list">', unsafe_allow_html=True)
+    for conv in conversations:
+        title = conv["title"]
+        if len(title) > 26:
+            title = title[:26] + "…"
+        is_active = conv["id"] == active_conversation_id
+        if st.sidebar.button(
+            f"📁 {title}",
+            key=f"chat_select_{conv['id']}",
+            use_container_width=True,
+            type="primary" if is_active else "secondary",
+        ):
+            st.session_state.active_conversation_by_user[active_user_id] = conv["id"]
+            st.session_state.view_mode = "chat"
+            st.rerun()
+    st.sidebar.markdown("</div>", unsafe_allow_html=True)
+
+    if active_conversation_id:
+        active_conversation = next(
+            (conv for conv in conversations if conv["id"] == active_conversation_id), None
         )
-        st.session_state.active_conversation_by_user[active_user_id] = conversation_labels[
-            selected_conversation
-        ]
+        with st.sidebar.expander("Chat options", expanded=False):
+            new_title = st.text_input(
+                "Rename chat",
+                value=active_conversation["title"] if active_conversation else "",
+            )
+            if st.button("Save name", use_container_width=True):
+                if active_conversation and new_title.strip():
+                    active_conversation["title"] = new_title.strip()
+                    st.rerun()
+            if st.button("Delete chat", use_container_width=True):
+                if active_conversation:
+                    conversations[:] = [
+                        conv for conv in conversations if conv["id"] != active_conversation_id
+                    ]
+                    if not conversations:
+                        new_id = str(uuid.uuid4())[:8]
+                        conversations.append(
+                            {
+                                "id": new_id,
+                                "title": "New chat",
+                                "messages": [],
+                                "created_at": now_timestamp(),
+                            }
+                        )
+                        st.session_state.active_conversation_by_user[active_user_id] = new_id
+                    else:
+                        st.session_state.active_conversation_by_user[active_user_id] = conversations[0]["id"]
+                    st.rerun()
+
+    st.sidebar.markdown("---")
+    st.sidebar.caption(f"Signed in as {logged_in_user['name']}")
+    st.sidebar.caption(f"{logged_in_user['id']}")
+    st.sidebar.markdown('<div class="sidebar-actions">', unsafe_allow_html=True)
+    if is_admin and st.sidebar.button("🧭 Open dashboard", use_container_width=True):
+        st.session_state.view_mode = "dashboard"
+        st.rerun()
+    if st.sidebar.button("🚪 Sign out", use_container_width=True):
+        st.session_state.logged_in_user_id = None
+        st.session_state.active_user_id = None
+        st.rerun()
+    st.sidebar.markdown("</div>", unsafe_allow_html=True)
 
 if st.session_state.view_mode == "dashboard" and is_admin:
     top_left, top_right = st.columns([3, 2])
@@ -568,7 +609,7 @@ if st.session_state.view_mode == "dashboard" and is_admin:
         with st.form("create_user_form_main", clear_on_submit=True):
             new_name = st.text_input("Name")
             new_email = st.text_input("Email")
-            new_password = st.text_input("Temporary password", type="password")
+            new_password = st.text_input("Password", type="password")
             submitted = st.form_submit_button("Add user")
             if submitted:
                 email_value = new_email.strip().lower()
