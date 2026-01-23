@@ -1,6 +1,9 @@
 from datetime import datetime
 import base64
 import hashlib
+import os
+import secrets
+import sqlite3
 import uuid
 
 import streamlit as st
@@ -149,10 +152,180 @@ section[data-testid="stSidebar"] .stButton button:active {
 st.markdown('<div class="app-title">Branding Marketing Agency ChatGPT</div>', unsafe_allow_html=True)
 
 def hash_password(password: str) -> str:
-    return hashlib.sha256(password.encode("utf-8")).hexdigest()
+    salt = secrets.token_bytes(16)
+    digest = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt, 120000)
+    return f"pbkdf2${base64.b64encode(salt).decode('utf-8')}${base64.b64encode(digest).decode('utf-8')}"
+
+def verify_password(password: str, password_hash: str) -> bool:
+    if not password_hash:
+        return False
+    if not password_hash.startswith("pbkdf2$"):
+        return hashlib.sha256(password.encode("utf-8")).hexdigest() == password_hash
+    try:
+        _, salt_b64, digest_b64 = password_hash.split("$", 2)
+    except ValueError:
+        return False
+    salt = base64.b64decode(salt_b64)
+    expected = base64.b64decode(digest_b64)
+    candidate = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt, 120000)
+    return secrets.compare_digest(candidate, expected)
 
 def now_timestamp() -> str:
     return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+def get_db_path() -> str:
+    root = os.path.dirname(os.path.abspath(__file__))
+    data_dir = os.path.join(root, "data")
+    os.makedirs(data_dir, exist_ok=True)
+    return os.path.join(data_dir, "chatbot.db")
+
+@st.cache_resource
+def get_db():
+    conn = sqlite3.connect(get_db_path(), check_same_thread=False)
+    conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA foreign_keys = ON")
+    return conn
+
+def init_db():
+    conn = get_db()
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS users (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            email TEXT NOT NULL,
+            role TEXT NOT NULL,
+            status TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            last_active TEXT NOT NULL,
+            password_hash TEXT NOT NULL
+        )
+        """
+    )
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS conversations (
+            id TEXT PRIMARY KEY,
+            user_id TEXT NOT NULL,
+            title TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+        )
+        """
+    )
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS messages (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            conversation_id TEXT NOT NULL,
+            role TEXT NOT NULL,
+            content TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            FOREIGN KEY(conversation_id) REFERENCES conversations(id) ON DELETE CASCADE
+        )
+        """
+    )
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_conversations_user_id ON conversations(user_id)"
+    )
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_messages_conversation_id ON messages(conversation_id)"
+    )
+    conn.commit()
+
+def db_get_user(user_id: str):
+    conn = get_db()
+    row = conn.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
+    return dict(row) if row else None
+
+def db_insert_user(user: dict):
+    conn = get_db()
+    conn.execute(
+        """
+        INSERT INTO users (id, name, email, role, status, created_at, last_active, password_hash)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            user["id"],
+            user["name"],
+            user["email"],
+            user["role"],
+            user["status"],
+            user["created_at"],
+            user["last_active"],
+            user["password_hash"],
+        ),
+    )
+    conn.commit()
+
+def db_update_user_activity(user_id: str, last_active: str, message_count: int | None = None):
+    conn = get_db()
+    conn.execute(
+        "UPDATE users SET last_active = ? WHERE id = ?",
+        (last_active, user_id),
+    )
+    conn.commit()
+
+def db_load_users() -> dict:
+    conn = get_db()
+    users = {}
+    for row in conn.execute("SELECT * FROM users"):
+        users[row["id"]] = dict(row)
+    return users
+
+def db_load_conversations(user_id: str) -> list:
+    conn = get_db()
+    conversations = []
+    for row in conn.execute(
+        "SELECT * FROM conversations WHERE user_id = ? ORDER BY created_at DESC",
+        (user_id,),
+    ):
+        convo = dict(row)
+        messages = [
+            {
+                "role": msg["role"],
+                "content": msg["content"],
+                "created_at": msg["created_at"],
+            }
+            for msg in conn.execute(
+                "SELECT role, content, created_at FROM messages WHERE conversation_id = ? ORDER BY id",
+                (row["id"],),
+            )
+        ]
+        convo["messages"] = messages
+        conversations.append(convo)
+    return conversations
+
+def db_create_conversation(user_id: str, title: str, created_at: str) -> str:
+    conn = get_db()
+    conversation_id = str(uuid.uuid4())[:8]
+    conn.execute(
+        "INSERT INTO conversations (id, user_id, title, created_at) VALUES (?, ?, ?, ?)",
+        (conversation_id, user_id, title, created_at),
+    )
+    conn.commit()
+    return conversation_id
+
+def db_delete_conversation(conversation_id: str):
+    conn = get_db()
+    conn.execute("DELETE FROM conversations WHERE id = ?", (conversation_id,))
+    conn.commit()
+
+def db_update_conversation_title(conversation_id: str, title: str):
+    conn = get_db()
+    conn.execute(
+        "UPDATE conversations SET title = ? WHERE id = ?",
+        (title, conversation_id),
+    )
+    conn.commit()
+
+def db_add_message(conversation_id: str, role: str, content: str, created_at: str):
+    conn = get_db()
+    conn.execute(
+        "INSERT INTO messages (conversation_id, role, content, created_at) VALUES (?, ?, ?, ?)",
+        (conversation_id, role, content, created_at),
+    )
+    conn.commit()
 
 try:
     openai_api_key = st.secrets.get("OPENAI_API_KEY", "")
@@ -190,14 +363,34 @@ def is_image_prompt(text: str) -> bool:
         return True
     return any(keyword in lowered for keyword in IMAGE_KEYWORDS)
 
-if "users" not in st.session_state:
-    st.session_state.users = {}
+def ensure_admin_user() -> str:
+    admin_id = "admin@company.local"
+    if not db_get_user(admin_id):
+        created_at = now_timestamp()
+        admin_user = {
+            "id": admin_id,
+            "name": "Admin",
+            "email": admin_id,
+            "role": "Admin",
+            "status": "Active",
+            "created_at": created_at,
+            "last_active": created_at,
+            "password_hash": hash_password("admin123"),
+        }
+        db_insert_user(admin_user)
+        db_create_conversation(admin_id, "Welcome", created_at)
+    return admin_id
 
-if "user_conversations" not in st.session_state:
-    st.session_state.user_conversations = {}
+def load_state_from_db():
+    st.session_state.users = db_load_users()
+    st.session_state.user_conversations = {
+        user_id: db_load_conversations(user_id)
+        for user_id in st.session_state.users.keys()
+    }
 
-if "active_conversation_by_user" not in st.session_state:
-    st.session_state.active_conversation_by_user = {}
+init_db()
+admin_id = ensure_admin_user()
+load_state_from_db()
 
 if "active_user_id" not in st.session_state:
     st.session_state.active_user_id = None
@@ -215,47 +408,32 @@ if "admin_section" not in st.session_state:
     st.session_state.admin_section = "Dashboard"
 
 if "admin_user_id" not in st.session_state:
-    admin_id = "admin@company.local"
-    st.session_state.users[admin_id] = {
-        "id": admin_id,
-        "name": "Admin",
-        "email": "admin@company.local",
-        "role": "Admin",
-        "status": "Active",
-        "created_at": now_timestamp(),
-        "last_active": "—",
-        "message_count": 0,
-        "password_hash": hash_password("admin123"),
-    }
-    st.session_state.user_conversations[admin_id] = [
-        {
-            "id": "welcome",
-            "title": "Welcome",
-            "messages": [],
-            "created_at": now_timestamp(),
-        }
-    ]
-    st.session_state.active_conversation_by_user[admin_id] = "welcome"
     st.session_state.admin_user_id = admin_id
+
+if "active_conversation_by_user" not in st.session_state:
+    st.session_state.active_conversation_by_user = {}
 
 def authenticate(user_id: str, password: str) -> bool:
     user = st.session_state.users.get(user_id)
     if not user:
         return False
-    return user.get("password_hash") == hash_password(password)
+    return verify_password(password, user.get("password_hash"))
 
 def current_user():
     return st.session_state.users.get(st.session_state.logged_in_user_id)
 
 def ensure_user_conversations(user_id: str):
     if user_id not in st.session_state.user_conversations:
-        conversation_id = str(uuid.uuid4())[:8]
+        st.session_state.user_conversations[user_id] = db_load_conversations(user_id)
+    if not st.session_state.user_conversations[user_id]:
+        created_at = now_timestamp()
+        conversation_id = db_create_conversation(user_id, "New chat", created_at)
         st.session_state.user_conversations[user_id] = [
             {
                 "id": conversation_id,
                 "title": "New chat",
                 "messages": [],
-                "created_at": now_timestamp(),
+                "created_at": created_at,
             }
         ]
         st.session_state.active_conversation_by_user[user_id] = conversation_id
@@ -279,8 +457,10 @@ def user_message_count(user_id: str) -> int:
     )
 
 def add_message(conversation: dict, role: str, content: str):
+    created_at = now_timestamp()
+    db_add_message(conversation["id"], role, content, created_at)
     conversation["messages"].append(
-        {"role": role, "content": content, "created_at": now_timestamp()}
+        {"role": role, "content": content, "created_at": created_at}
     )
 
 def iter_all_messages():
@@ -332,6 +512,8 @@ if st.session_state.logged_in_user_id is None:
                 st.session_state.logged_in_user_id = login_user_id
                 st.session_state.active_user_id = login_user_id
                 ensure_user_conversations(login_user_id)
+                st.session_state.users[login_user_id]["last_active"] = now_timestamp()
+                db_update_user_activity(login_user_id, st.session_state.users[login_user_id]["last_active"])
                 st.success("Signed in.")
                 st.rerun()
             else:
@@ -381,7 +563,12 @@ if is_admin and st.session_state.view_mode == "dashboard":
 else:
     st.sidebar.markdown("### Chats")
     if st.sidebar.button("➕ New chat", use_container_width=True):
-        new_id = str(uuid.uuid4())[:8]
+        created_at = now_timestamp()
+        new_id = db_create_conversation(
+            st.session_state.logged_in_user_id,
+            "New chat",
+            created_at,
+        )
         conversations = st.session_state.user_conversations[st.session_state.logged_in_user_id]
         conversations.insert(
             0,
@@ -389,7 +576,7 @@ else:
                 "id": new_id,
                 "title": "New chat",
                 "messages": [],
-                "created_at": now_timestamp(),
+                "created_at": created_at,
             },
         )
         st.session_state.active_conversation_by_user[st.session_state.logged_in_user_id] = new_id
@@ -460,20 +647,23 @@ if not (is_admin and st.session_state.view_mode == "dashboard"):
             if st.button("Save name", use_container_width=True):
                 if active_conversation and new_title.strip():
                     active_conversation["title"] = new_title.strip()
+                    db_update_conversation_title(active_conversation["id"], new_title.strip())
                     st.rerun()
             if st.button("Delete chat", use_container_width=True):
                 if active_conversation:
+                    db_delete_conversation(active_conversation_id)
                     conversations[:] = [
                         conv for conv in conversations if conv["id"] != active_conversation_id
                     ]
                     if not conversations:
-                        new_id = str(uuid.uuid4())[:8]
+                        created_at = now_timestamp()
+                        new_id = db_create_conversation(active_user_id, "New chat", created_at)
                         conversations.append(
                             {
                                 "id": new_id,
                                 "title": "New chat",
                                 "messages": [],
-                                "created_at": now_timestamp(),
+                                "created_at": created_at,
                             }
                         )
                         st.session_state.active_conversation_by_user[active_user_id] = new_id
@@ -620,7 +810,7 @@ if st.session_state.view_mode == "dashboard" and is_admin:
                     st.warning("That email is already in use. Please choose another.")
                 else:
                     created_at = now_timestamp()
-                    st.session_state.users[email_value] = {
+                    new_user = {
                         "id": email_value,
                         "name": new_name.strip(),
                         "email": email_value,
@@ -628,18 +818,20 @@ if st.session_state.view_mode == "dashboard" and is_admin:
                         "status": "Active",
                         "created_at": created_at,
                         "last_active": created_at,
-                        "message_count": 0,
                         "password_hash": hash_password(new_password.strip()),
                     }
+                    db_insert_user(new_user)
+                    st.session_state.users[email_value] = new_user
+                    conversation_id = db_create_conversation(email_value, "New chat", created_at)
                     st.session_state.user_conversations[email_value] = [
                         {
-                            "id": "welcome",
+                            "id": conversation_id,
                             "title": "New chat",
                             "messages": [],
                             "created_at": created_at,
                         }
                     ]
-                    st.session_state.active_conversation_by_user[email_value] = "welcome"
+                    st.session_state.active_conversation_by_user[email_value] = conversation_id
                     st.success(
                         f"User created. Email (ID): `{email_value}` | Temp password: `{new_password.strip()}`"
                     )
@@ -784,3 +976,4 @@ else:
                 active_user_id
             )
             st.session_state.users[active_user_id]["last_active"] = now_timestamp()
+            db_update_user_activity(active_user_id, st.session_state.users[active_user_id]["last_active"])
